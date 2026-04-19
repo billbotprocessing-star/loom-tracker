@@ -141,6 +141,16 @@ select.inp option{background:#1a1040;color:white}
 .color-dot{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2.5px solid transparent;transition:border-color .15s}
 .color-dot.sel{border-color:white}
 
+/* ── AUTH SCREEN ── */
+.auth-screen{position:fixed;inset:0;background:linear-gradient(160deg,#0f0c29 0%,#1a1040 50%,#16213e 100%);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-card{background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.1);border-radius:24px;padding:32px 24px;width:100%;max-width:360px}
+.auth-title{font-size:22px;font-weight:700;margin-bottom:4px;text-align:center}
+.auth-sub{font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:24px;text-align:center}
+.auth-err{font-size:12px;color:#f87171;margin-bottom:10px;text-align:center;min-height:18px}
+.auth-sep{height:0.5px;background:rgba(255,255,255,0.1);margin:16px 0}
+.auth-toggle{font-size:13px;color:rgba(255,255,255,0.4);text-align:center}
+.auth-toggle span{color:#818cf8;cursor:pointer;text-decoration:underline}
+
 /* ── RESPONSIVE DESKTOP ── */
 @media(min-width:540px){
   body{background:#0a0818;align-items:center;justify-content:center}
@@ -155,9 +165,26 @@ select.inp option{background:#1a1040;color:white}
 }
 .hidden{display:none!important}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-<div class="app">
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <div style="text-align:center;font-size:40px;margin-bottom:12px">💰</div>
+    <div class="auth-title">Budget Tracker</div>
+    <div class="auth-sub" id="auth-sub">Sign in to continue</div>
+    <div class="auth-err" id="auth-err"></div>
+    <div class="field"><label>Email</label><input type="email" class="inp" id="auth-email" placeholder="you@example.com" autocomplete="email" onkeydown="if(event.key==='Enter')handleAuth()"></div>
+    <div class="field"><label>Password</label><input type="password" class="inp" id="auth-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')handleAuth()"></div>
+    <button class="btn-primary" id="auth-btn" onclick="handleAuth()">Sign in</button>
+    <div class="auth-sep"></div>
+    <div class="auth-toggle" id="auth-toggle">Don't have an account? <span onclick="toggleAuthMode()">Sign up</span></div>
+  </div>
+</div>
+
+<div class="app" id="app-root" style="display:none">
 
   <!-- TOP BAR -->
   <div class="topbar">
@@ -169,6 +196,7 @@ select.inp option{background:#1a1040;color:white}
       <button class="hbtn hbtn-ghost" onclick="openEditBudgets()">Budgets</button>
       <button class="hbtn hbtn-indigo" onclick="exportPDF()">Export</button>
       <div id="score-ring"></div>
+      <button class="hbtn hbtn-ghost" id="logout-btn" onclick="signOut()" style="border-color:rgba(239,68,68,0.3);color:#f87171;background:rgba(239,68,68,0.07)">Out</button>
     </div>
   </div>
 
@@ -214,6 +242,81 @@ select.inp option{background:#1a1040;color:white}
 </div>
 
 <script>
+// ── SUPABASE AUTH ──
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let _authMode = 'signin';
+
+async function initAuth() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) showApp(session.user);
+  else showAuthScreen();
+  sb.auth.onAuthStateChange((_event, session) => {
+    if (session) showApp(session.user);
+    else showAuthScreen();
+  });
+}
+
+function showApp(user) {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('app-root').style.display = 'flex';
+  const btn = document.getElementById('logout-btn');
+  if (btn && user.email) {
+    const short = user.email.length > 14 ? user.email.slice(0, 12) + '…' : user.email;
+    btn.title = user.email;
+  }
+  renderScore();
+  renderDash();
+}
+
+function showAuthScreen() {
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('app-root').style.display = 'none';
+}
+
+function toggleAuthMode() {
+  _authMode = _authMode === 'signin' ? 'signup' : 'signin';
+  const isSU = _authMode === 'signup';
+  document.getElementById('auth-sub').textContent = isSU ? 'Create your account' : 'Sign in to continue';
+  document.getElementById('auth-btn').textContent = isSU ? 'Sign up' : 'Sign in';
+  document.getElementById('auth-toggle').innerHTML = isSU
+    ? 'Already have an account? <span onclick="toggleAuthMode()">Sign in</span>'
+    : 'Don\'t have an account? <span onclick="toggleAuthMode()">Sign up</span>';
+  document.getElementById('auth-err').textContent = '';
+}
+
+async function handleAuth() {
+  const email = document.getElementById('auth-email').value.trim();
+  const pass = document.getElementById('auth-pass').value;
+  const errEl = document.getElementById('auth-err');
+  const btn = document.getElementById('auth-btn');
+  if (!email || !pass) { errEl.textContent = 'Please fill in all fields.'; return; }
+  btn.disabled = true;
+  btn.textContent = _authMode === 'signin' ? 'Signing in…' : 'Signing up…';
+  errEl.textContent = '';
+  try {
+    const result = _authMode === 'signin'
+      ? await sb.auth.signInWithPassword({ email, password: pass })
+      : await sb.auth.signUp({ email, password: pass });
+    if (result.error) {
+      errEl.textContent = result.error.message;
+    } else if (_authMode === 'signup' && !result.data.session) {
+      document.getElementById('auth-sub').textContent = '✉ Check your email to confirm!';
+    }
+  } catch {
+    errEl.textContent = 'Something went wrong. Try again.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = _authMode === 'signin' ? 'Sign in' : 'Sign up';
+  }
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+}
+
 const CATS=["Food & Dining","Transport","Entertainment","Shopping","Utilities","Health","Subscriptions","Other"];
 const COLORS={"Food & Dining":"#6366f1","Transport":"#10b981","Entertainment":"#f43f5e","Shopping":"#f59e0b","Utilities":"#3b82f6","Health":"#ef4444","Subscriptions":"#8b5cf6","Other":"#6b7280"};
 const ICONS_MAP={"Food & Dining":"🍴","Transport":"🚗","Entertainment":"🎬","Shopping":"🛍","Utilities":"⚡","Health":"💊","Subscriptions":"📱","Other":"📦"};
@@ -635,8 +738,7 @@ function exportPDF(){
 }
 
 // INIT
-renderScore();
-renderDash();
+initAuth();
 </script>
 </body>
 </html>
