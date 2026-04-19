@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Budget Tracker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:linear-gradient(135deg,#0f0c29,#1a1040,#16213e);min-height:100vh;color:white}
+:root{--indigo:#6366f1;--green:#10b981;--amber:#f59e0b;--red:#ef4444;--purple:#8b5cf6;--pink:#f43f5e;--blue:#3b82f6;--gray:#6b7280}
+input,select,textarea{font-family:inherit;color:white;outline:none}
+button{font-family:inherit;cursor:pointer}
+.app{max-width:860px;margin:0 auto;padding:16px}
+.card{background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.07);border-radius:14px;padding:1rem}
+.header{background:rgba(255,255,255,0.03);border:0.5px solid rgba(255,255,255,0.07);border-radius:14px;padding:1rem 1.4rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.header-title{font-size:17px;font-weight:500}
+.header-sub{font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px}
+.header-actions{display:flex;align-items:center;gap:10px}
+.btn-sm{padding:6px 12px;border-radius:8px;border:0.5px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.5);font-size:11px}
+.btn-indigo{border-color:rgba(99,102,241,0.35)!important;background:rgba(99,102,241,0.12)!important;color:#818cf8!important}
+.layout{display:flex;gap:0;border:0.5px solid rgba(255,255,255,0.07);border-radius:14px;overflow:hidden;min-height:600px}
+.sidebar{width:56px;background:rgba(255,255,255,0.015);border-right:0.5px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;align-items:center;padding-top:12px;gap:3px}
+.nav-btn{width:40px;height:40px;border-radius:9px;border:none;background:transparent;color:rgba(255,255,255,0.28);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:14px;transition:all .15s}
+.nav-btn.active{background:rgba(99,102,241,0.22);color:#818cf8}
+.nav-btn span{font-size:7px;letter-spacing:.3px}
+.main{flex:1;padding:1rem;overflow-y:auto;max-height:600px;background:rgba(255,255,255,0)}
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.stat-card{background:rgba(255,255,255,0.05);border-radius:11px;padding:.7rem;border-top:2px solid var(--c)}
+.stat-card .lbl{font-size:9px;color:rgba(255,255,255,0.38);margin-bottom:3px}
+.stat-card .val{font-size:16px;font-weight:500}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;align-items:start}
+.inp{width:100%;background:rgba(255,255,255,0.07);border:0.5px solid rgba(255,255,255,0.15);border-radius:8px;padding:8px 12px;color:white;font-size:13px}
+.inp:focus{border-color:rgba(99,102,241,.5)}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:4px}
+.btn-primary{padding:9px 16px;border-radius:8px;border:none;background:var(--indigo);color:white;font-weight:500;font-size:13px}
+.btn-cancel{padding:9px 16px;border-radius:8px;border:none;background:rgba(255,255,255,0.07);color:rgba(255,255,255,.6);font-size:13px}
+.btn-danger{padding:9px 16px;border-radius:8px;border:none;background:var(--red);color:white;font-weight:500;font-size:13px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{background:#1a1040;border:0.5px solid rgba(255,255,255,.12);border-radius:16px;padding:1.5rem;width:100%;max-width:400px;max-height:85vh;overflow-y:auto}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-title{font-weight:500;font-size:15px}
+.modal-close{background:none;border:none;color:rgba(255,255,255,.4);font-size:20px;padding:0 4px;line-height:1}
+.txn-row{display:grid;grid-template-columns:28px 1fr auto auto;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;border:0.5px solid rgba(255,255,255,.05)}
+.txn-row:nth-child(odd){background:rgba(255,255,255,.04)}
+.txn-row:nth-child(even){background:rgba(255,255,255,.02)}
+.icon-box{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:12px}
+.edit-btn{width:25px;height:25px;border-radius:6px;border:0.5px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);color:rgba(255,255,255,.45);font-size:11px;display:flex;align-items:center;justify-content:center}
+.del-btn{width:25px;height:25px;border-radius:6px;border:0.5px solid rgba(239,68,68,.18);background:rgba(239,68,68,.06);color:#f87171;font-size:11px;display:flex;align-items:center;justify-content:center}
+.sav-row{background:rgba(255,255,255,.04);border:0.5px solid rgba(255,255,255,.06);border-radius:13px;padding:.9rem 1rem;margin-bottom:8px}
+.toggle-track{width:36px;height:20px;border-radius:10px;cursor:pointer;position:relative;transition:background .2s}
+.toggle-thumb{width:16px;height:16px;border-radius:50%;background:white;position:absolute;top:2px;transition:left .2s}
+.progress-bg{height:8px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;border-radius:4px;transition:width .8s ease}
+.cat-bar-bg{height:7px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden}
+.insight{background:rgba(16,185,129,.07);border:0.5px solid rgba(16,185,129,.18);border-radius:11px;padding:.75rem .9rem;margin-top:12px}
+.chat-msg{display:flex;margin-bottom:8px}
+.chat-msg.user{justify-content:flex-end}
+.bubble{max-width:82%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.55;color:rgba(255,255,255,.88)}
+.bubble.assistant{background:rgba(255,255,255,.06);border:0.5px solid rgba(255,255,255,.08);border-radius:12px 12px 12px 3px}
+.bubble.user{background:var(--indigo);border-radius:12px 12px 3px 12px}
+.typing-dot{width:6px;height:6px;border-radius:50%;background:#818cf8;animation:bounce .9s ease-in-out infinite}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+.chip{font-size:11px;padding:5px 10px;border-radius:20px;border:0.5px solid rgba(99,102,241,.35);background:rgba(99,102,241,.1);color:#818cf8;cursor:pointer;margin:3px}
+.recurring-badge{font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(139,92,246,.2);color:#a78bfa}
+.section-lbl{font-size:10px;color:rgba(255,255,255,.38);margin-bottom:8px}
+.hidden{display:none!important}
+select option{background:#1a1040}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div><div class="header-title">Budget tracker</div><div class="header-sub">April 2024</div></div>
+    <div class="header-actions">
+      <button class="btn-sm" onclick="openEditBudgets()">Edit budgets</button>
+      <button class="btn-sm btn-indigo" onclick="exportPDF()">Export PDF</button>
+      <div id="score-ring"></div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="sidebar">
+      <button class="nav-btn active" data-view="dashboard" onclick="switchView('dashboard',this)">◉<span>DASH</span></button>
+      <button class="nav-btn" data-view="transactions" onclick="switchView('transactions',this)">≡<span>TXN</span></button>
+      <button class="nav-btn" data-view="savings" onclick="switchView('savings',this)">◎<span>SAVE</span></button>
+      <button class="nav-btn" data-view="coach" onclick="switchView('coach',this)">✦<span>COACH</span></button>
+      <button class="nav-btn" data-view="upload" onclick="switchView('upload',this)">↑<span>UPLOAD</span></button>
+    </div>
+    <div class="main">
+      <div id="view-dashboard"></div>
+      <div id="view-transactions" class="hidden"></div>
+      <div id="view-savings" class="hidden"></div>
+      <div id="view-coach" class="hidden"></div>
+      <div id="view-upload" class="hidden"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div id="modal-bg" class="modal-bg hidden" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title"></div>
+      <button class="modal-close" onclick="closeAllModals()">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+const CATS=["Food & Dining","Transport","Entertainment","Shopping","Utilities","Health","Subscriptions","Other"];
+const COLORS={"Food & Dining":"#6366f1","Transport":"#10b981","Entertainment":"#f43f5e","Shopping":"#f59e0b","Utilities":"#3b82f6","Health":"#ef4444","Subscriptions":"#8b5cf6","Other":"#6b7280"};
+const ICONS={"Food & Dining":"🍴","Transport":"🚗","Entertainment":"🎬","Shopping":"🛍","Utilities":"⚡","Health":"💊","Subscriptions":"📱","Other":"📦"};
+const SAVE_COLORS=["#6366f1","#10b981","#f59e0b","#f43f5e","#3b82f6","#8b5cf6","#ef4444","#6b7280"];
+const SAVE_ICONS=["✈","🛡","📈","🏠","🎓","🚗","💍","🐾","💻","🎯"];
+const MONTH_DATA={Jan:{"Food & Dining":520,"Transport":180,"Entertainment":90,"Shopping":210,"Utilities":140,"Health":60,"Subscriptions":80,"Other":150},Feb:{"Food & Dining":480,"Transport":195,"Entertainment":120,"Shopping":280,"Utilities":145,"Health":80,"Subscriptions":80,"Other":130},Mar:{"Food & Dining":610,"Transport":160,"Entertainment":100,"Shopping":190,"Utilities":148,"Health":40,"Subscriptions":80,"Other":110}};
+
+let txns=[
+  {id:1,date:"2024-04-01",merchant:"Whole Foods",amount:87.43,category:"Food & Dining",recurring:false},
+  {id:2,date:"2024-04-02",merchant:"Uber",amount:14.20,category:"Transport",recurring:false},
+  {id:3,date:"2024-04-03",merchant:"Netflix",amount:15.99,category:"Subscriptions",recurring:true},
+  {id:4,date:"2024-04-04",merchant:"CVS Pharmacy",amount:32.10,category:"Health",recurring:false},
+  {id:5,date:"2024-04-05",merchant:"Chipotle",amount:12.75,category:"Food & Dining",recurring:false},
+  {id:6,date:"2024-04-06",merchant:"Amazon",amount:54.99,category:"Shopping",recurring:false},
+  {id:7,date:"2024-04-07",merchant:"Electric Bill",amount:92.00,category:"Utilities",recurring:true},
+  {id:8,date:"2024-04-08",merchant:"AMC Theaters",amount:28.50,category:"Entertainment",recurring:false},
+  {id:9,date:"2024-04-09",merchant:"Starbucks",amount:6.85,category:"Food & Dining",recurring:true},
+  {id:10,date:"2024-04-10",merchant:"Shell Gas",amount:48.00,category:"Transport",recurring:false},
+  {id:11,date:"2024-04-11",merchant:"Spotify",amount:9.99,category:"Subscriptions",recurring:true},
+  {id:12,date:"2024-04-12",merchant:"Target",amount:73.21,category:"Shopping",recurring:false},
+];
+let savings=[
+  {id:1,label:"Vacation fund",icon:"✈",target:1000,saved:420,color:"#6366f1",contributions:[{id:1,date:"2024-03-01",amount:200,note:"March deposit"},{id:2,date:"2024-04-01",amount:220,note:"April deposit"}]},
+  {id:2,label:"Emergency fund",icon:"🛡",target:5000,saved:2100,color:"#10b981",contributions:[{id:1,date:"2024-02-01",amount:1000,note:"Initial"},{id:2,date:"2024-03-01",amount:600,note:"March"},{id:3,date:"2024-04-01",amount:500,note:"April"}]},
+  {id:3,label:"Investing",icon:"📈",target:10000,saved:3750,color:"#f59e0b",contributions:[{id:1,date:"2024-01-01",amount:1500,note:"Q1"},{id:2,date:"2024-04-01",amount:2250,note:"Q2 start"}]},
+];
+let budgets={"Food & Dining":600,"Transport":200,"Entertainment":150,"Shopping":300,"Utilities":150,"Health":100,"Subscriptions":80,"Other":200};
+let chatMsgs=[{role:"assistant",text:"Hi! I'm your AI budget coach. Ask me anything about your spending, savings goals, or financial habits — I'll give you personalized advice based on your actual data."}];
+let currentView="dashboard";
+let searchStr="",filterCat="All";
+
+// ---- COMPUTED ----
+function catTotals(){const t={};txns.forEach(x=>{t[x.category]=(t[x.category]||0)+x.amount;});return t;}
+function totalSpent(){return txns.reduce((s,t)=>s+t.amount,0);}
+function totalSaved(){return savings.reduce((s,a)=>s+a.saved,0);}
+function recurringTotal(){return txns.filter(t=>t.recurring).reduce((s,t)=>s+t.amount,0);}
+function budgetScore(){
+  let sc=100,ct=catTotals();
+  CATS.forEach(c=>{const s=ct[c]||0,b=budgets[c];if(s>b)sc-=Math.min(15,(s-b)/b*30);});
+  return Math.max(0,Math.round(sc));
+}
+
+// ---- SCORE RING ----
+function renderScoreRing(){
+  const score=budgetScore(),r=26,circ=2*Math.PI*r;
+  const color=score>=80?"#10b981":score>=55?"#f59e0b":"#ef4444";
+  const label=score>=80?"On track":score>=55?"Watch it":"Over budget";
+  document.getElementById("score-ring").innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px">
+      <svg width="66" height="66" viewBox="0 0 72 72">
+        <circle cx="36" cy="36" r="${r}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="7"/>
+        <circle cx="36" cy="36" r="${r}" fill="none" stroke="${color}" stroke-width="7"
+          stroke-dasharray="${score/100*circ} ${circ}" stroke-dashoffset="${circ/4}" stroke-linecap="round"/>
+        <text x="36" y="41" text-anchor="middle" font-size="14" font-weight="500" fill="white" font-family="system-ui">${score}</text>
+      </svg>
+      <div><div style="font-size:12px;font-weight:500">Budget score</div><div style="font-size:11px;color:${color};margin-top:2px">${label}</div></div>
+    </div>`;
+}
+
+// ---- SWITCH VIEW ----
+function switchView(v,btn){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  document.querySelectorAll('[id^="view-"]').forEach(el=>el.classList.add('hidden'));
+  document.getElementById('view-'+v).classList.remove('hidden');
+  currentView=v;
+  renderView(v);
+}
+
+function renderView(v){
+  if(v==="dashboard")renderDashboard();
+  else if(v==="transactions")renderTransactions();
+  else if(v==="savings")renderSavings();
+  else if(v==="coach")renderCoach();
+  else if(v==="upload")renderUpload();
+  renderScoreRing();
+}
+
+// ---- DONUT ----
+function donutSVG(data,total){
+  const sz=170,cx=85,cy=85,r=60,sw=20,circ=2*Math.PI*r;
+  let off=0,slices="";
+  data.forEach(d=>{
+    const pct=total>0?d.amount/total:0;
+    const da=`${pct*circ} ${circ}`;
+    slices+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${COLORS[d.category]}" stroke-width="${sw}" stroke-dasharray="${da}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cy})" style="transition:opacity .2s"/>`;
+    off+=pct*circ;
+  });
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}" style="display:block;margin:0 auto">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="${sw}"/>
+    ${slices}
+    <text x="${cx}" y="${cy-5}" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.4)" font-family="system-ui">total</text>
+    <text x="${cx}" y="${cy+13}" text-anchor="middle" font-size="19" font-weight="500" fill="white" font-family="system-ui">$${total.toFixed(0)}</text>
+  </svg>`;
+}
+
+// ---- DASHBOARD ----
+function renderDashboard(){
+  const ct=catTotals(),tot=totalSpent(),ts=totalSaved(),rt=recurringTotal();
+  const stats=[{l:"Total spent",v:`$${tot.toFixed(2)}`,c:"#6366f1"},{l:"Transactions",v:txns.length,c:"#10b981"},{l:"Total saved",v:`$${ts.toLocaleString()}`,c:"#f59e0b"},{l:"Recurring/mo",v:`$${rt.toFixed(0)}`,c:"#8b5cf6"}];
+  const donutData=CATS.filter(c=>ct[c]).map(c=>({category:c,amount:ct[c]}));
+  const legend=CATS.filter(c=>ct[c]).map(c=>`<div style="display:flex;align-items:center;gap:3px"><div style="width:6px;height:6px;border-radius:2px;background:${COLORS[c]}"></div><span style="font-size:9px;color:rgba(255,255,255,.45)">${c.split(" ")[0]}</span></div>`).join("");
+  const catBars=CATS.filter(c=>ct[c]).map(c=>{
+    const pct=(ct[c]/budgets[c])*100,over=ct[c]>budgets[c];
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+        <span style="font-size:10px;color:rgba(255,255,255,.55)">${ICONS[c]} ${c}</span>
+        <span style="font-size:10px;font-weight:500;color:${over?"#f87171":"#6ee7b7"}">$${ct[c].toFixed(0)}<span style="color:rgba(255,255,255,.25)"> /${budgets[c]}</span></span>
+      </div>
+      <div class="cat-bar-bg"><div style="height:100%;width:${Math.min(100,pct).toFixed(1)}%;background:${over?"#ef4444":COLORS[c]};border-radius:4px;transition:width .7s ease"></div></div>
+    </div>`;
+  }).join("");
+
+  // month compare
+  const aprTot=tot;
+  const months=[["Jan",Object.values(MONTH_DATA.Jan).reduce((a,b)=>a+b,0)],["Feb",Object.values(MONTH_DATA.Feb).reduce((a,b)=>a+b,0)],["Mar",Object.values(MONTH_DATA.Mar).reduce((a,b)=>a+b,0)],["Apr",aprTot]];
+  const maxM=Math.max(...months.map(m=>m[1]));
+  const mBars=months.map(([m,v])=>`<div style="display:grid;grid-template-columns:30px 1fr 55px;gap:8px;align-items:center;margin-bottom:6px">
+    <div style="font-size:10px;color:rgba(255,255,255,.5);text-align:right">${m}</div>
+    <div style="height:16px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden"><div style="height:100%;width:${(v/maxM*100).toFixed(1)}%;background:${m==="Apr"?"#6366f1":"rgba(255,255,255,.2)"};border-radius:4px"></div></div>
+    <div style="font-size:10px;font-weight:500;color:${m==="Apr"?"white":"rgba(255,255,255,.45)"};text-align:right">$${v.toFixed(0)}</div>
+  </div>`).join("");
+
+  const savSnap=savings.slice(0,3).map(s=>`<div onclick="switchView('savings',document.querySelector('[data-view=savings]'))" style="background:rgba(255,255,255,.04);border-radius:9px;padding:.6rem;cursor:pointer;flex:1">
+    <div style="font-size:14px;margin-bottom:2px">${s.icon}</div>
+    <div style="font-size:9px;color:rgba(255,255,255,.4);margin-bottom:1px">${s.label}</div>
+    <div style="font-size:12px;font-weight:500">$${s.saved.toLocaleString()}</div>
+    <div style="height:3px;background:rgba(255,255,255,.07);border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.min(100,(s.saved/s.target)*100).toFixed(0)}%;background:${s.color};border-radius:2px"></div></div>
+  </div>`).join("");
+
+  const topCat=Object.entries(ct).sort((a,b)=>b[1]-a[1])[0];
+  const insightTxt=topCat?`${topCat[0]} is your top category at $${topCat[1].toFixed(2)}.${topCat[1]>budgets[topCat[0]]?` You're $${(topCat[1]-budgets[topCat[0]]).toFixed(2)} over budget.`:" Within budget — nice work!"}`:"No transactions yet.";
+
+  document.getElementById("view-dashboard").innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+      ${stats.map(s=>`<div style="background:rgba(255,255,255,.05);border-radius:11px;padding:.7rem;border-top:2px solid ${s.c}"><div style="font-size:9px;color:rgba(255,255,255,.38);margin-bottom:3px">${s.l}</div><div style="font-size:15px;font-weight:500">${s.v}</div></div>`).join("")}
+    </div>
+    <div class="two-col">
+      <div class="card"><div class="section-lbl">Spending breakdown</div>${donutSVG(donutData,tot)}<div style="display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:8px;justify-content:center">${legend}</div></div>
+      <div class="card"><div class="section-lbl">vs budget</div>${catBars}</div>
+    </div>
+    <div class="card" style="margin-bottom:12px"><div class="section-lbl">Month-over-month</div>${mBars}</div>
+    <div style="background:rgba(99,102,241,.07);border:0.5px solid rgba(99,102,241,.15);border-radius:13px;padding:.9rem;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:500">Savings</div>
+        <button onclick="switchView('savings',document.querySelector('[data-view=savings]'))" style="font-size:10px;color:#818cf8;background:none;border:none;cursor:pointer">View all →</button>
+      </div>
+      <div style="display:flex;gap:8px">${savSnap}</div>
+    </div>
+    <div class="insight"><div style="font-size:10px;font-weight:500;color:#6ee7b7;margin-bottom:2px">Insight</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.55)">${insightTxt} <span style="color:#818cf8;cursor:pointer" onclick="switchView('coach',document.querySelector('[data-view=coach]'))">Ask your AI coach →</span></div>
+    </div>`;
+}
+
+// ---- TRANSACTIONS ----
+function renderTransactions(){
+  const rec=txns.filter(t=>t.recurring);
+  const filtered=txns.filter(t=>{
+    const ms=t.merchant.toLowerCase().includes(searchStr.toLowerCase())||t.category.toLowerCase().includes(searchStr.toLowerCase());
+    const mc=filterCat==="All"||t.category===filterCat;
+    return ms&&mc;
+  });
+  const recBanner=rec.length?`<div style="background:rgba(139,92,246,.08);border:0.5px solid rgba(139,92,246,.2);border-radius:10px;padding:7px 12px;margin-bottom:10px;font-size:11px;color:rgba(255,255,255,.5)">
+    📱 <strong style="color:#a78bfa">${rec.length} recurring charges</strong> detected · $${recurringTotal().toFixed(2)}/mo</div>`:"";
+  const rows=filtered.map((t,i)=>`<div class="txn-row" style="margin-bottom:4px">
+    <div class="icon-box" style="background:${COLORS[t.category]}22">${ICONS[t.category]}</div>
+    <div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:12px;font-weight:500">${t.merchant}</span>
+        ${t.recurring?`<span class="recurring-badge">recurring</span>`:""}
+      </div>
+      <div style="font-size:9px;color:rgba(255,255,255,.28);margin-top:1px">${t.date} · <span style="color:${COLORS[t.category]}">${t.category}</span></div>
+    </div>
+    <div style="display:flex;gap:4px">
+      <button class="edit-btn" onclick="openEditTxn(${t.id})">✎</button>
+      <button class="del-btn" onclick="confirmDeleteTxn(${t.id})">✕</button>
+    </div>
+    <div style="font-size:12px;font-weight:500;text-align:right">$${t.amount.toFixed(2)}</div>
+  </div>`).join("");
+  const catOpts=CATS.map(c=>`<option value="${c}" ${filterCat===c?"selected":""}>${c}</option>`).join("");
+  document.getElementById("view-transactions").innerHTML=`
+    <div style="display:flex;gap:7px;margin-bottom:10px">
+      <input class="inp" placeholder="Search..." value="${searchStr}" oninput="searchStr=this.value;renderTransactions()" style="flex:1;padding:8px 12px">
+      <select class="inp" style="width:auto;padding:8px 10px" onchange="filterCat=this.value;renderTransactions()">
+        <option value="All" ${filterCat==="All"?"selected":""}>All</option>${catOpts}
+      </select>
+      <button class="btn-sm btn-indigo" onclick="openAddTxn()">+ Add</button>
+    </div>
+    ${recBanner}
+    <div>${rows}</div>
+    ${filtered.length===0?`<div style="text-align:center;color:rgba(255,255,255,.2);font-size:12px;margin-top:20px">No transactions found</div>`:""}`;
+}
+
+// ---- SAVINGS ----
+function renderSavings(){
+  const ts=savings.reduce((s,a)=>s+a.saved,0);
+  const tg=savings.reduce((s,a)=>s+a.target,0);
+  const rows=savings.map(s=>{
+    const pct=Math.min(100,(s.saved/s.target)*100);
+    return `<div class="sav-row">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+        <div style="display:flex;align-items:center;gap:9px">
+          <div style="width:36px;height:36px;border-radius:9px;background:${s.color}22;display:flex;align-items:center;justify-content:center;font-size:17px">${s.icon}</div>
+          <div><div style="font-size:13px;font-weight:500">${s.label}</div><div style="font-size:9px;color:rgba(255,255,255,.3);margin-top:1px">$${s.saved.toLocaleString()} of $${s.target.toLocaleString()}</div></div>
+        </div>
+        <div style="display:flex;gap:4px">
+          <button style="padding:4px 9px;border-radius:7px;border:0.5px solid ${s.color}44;background:${s.color}15;color:${s.color};cursor:pointer;font-size:10px" onclick="openAddContrib(${s.id})">+ Add</button>
+          <button class="edit-btn" onclick="openViewSav(${s.id})">⊙</button>
+          <button class="edit-btn" onclick="openEditSav(${s.id})">✎</button>
+          <button class="del-btn" onclick="confirmDeleteSav(${s.id})">✕</button>
+        </div>
+      </div>
+      <div class="progress-bg"><div class="progress-fill" style="width:${pct.toFixed(0)}%;background:${s.color}"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px"><span style="font-size:9px;color:rgba(255,255,255,.28)">${pct.toFixed(1)}% complete</span><span style="font-size:9px;color:rgba(255,255,255,.28)">$${(s.target-s.saved).toLocaleString()} to go</span></div>
+    </div>`;
+  }).join("");
+  document.getElementById("view-savings").innerHTML=`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div style="background:rgba(255,255,255,.05);border-radius:11px;padding:.75rem;border-top:2px solid #10b981"><div style="font-size:10px;color:rgba(255,255,255,.38);margin-bottom:3px">Total saved</div><div style="font-size:19px;font-weight:500">$${ts.toLocaleString()}</div></div>
+      <div style="background:rgba(255,255,255,.05);border-radius:11px;padding:.75rem;border-top:2px solid #6366f1"><div style="font-size:10px;color:rgba(255,255,255,.38);margin-bottom:3px">Total goal</div><div style="font-size:19px;font-weight:500">$${tg.toLocaleString()}</div></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <button class="btn-sm btn-indigo" onclick="openAddSav()">+ New account</button>
+    </div>
+    ${rows}
+    ${savings.length===0?`<div style="text-align:center;color:rgba(255,255,255,.2);font-size:12px;padding:2rem">No accounts yet.</div>`:""}`;
+}
+
+// ---- COACH ----
+function renderCoach(){
+  const ct=catTotals(),tot=totalSpent(),ts=totalSaved(),rt=recurringTotal();
+  const over=CATS.filter(c=>(ct[c]||0)>budgets[c]);
+  const rec=txns.filter(t=>t.recurring).map(t=>t.merchant+" $"+t.amount).join(", ");
+  const aprTot=tot;
+  const mTots={Jan:Object.values(MONTH_DATA.Jan).reduce((a,b)=>a+b,0),Feb:Object.values(MONTH_DATA.Feb).reduce((a,b)=>a+b,0),Mar:Object.values(MONTH_DATA.Mar).reduce((a,b)=>a+b,0),Apr:aprTot};
+  window._coachContext={ct,tot,ts,rt,over,rec,mTots,budgets};
+
+  const bubbles=chatMsgs.map(m=>`<div class="chat-msg ${m.role}"><div class="bubble ${m.role}">${m.text}</div></div>`).join("");
+  const chips=chatMsgs.length<=1?`<div style="display:flex;flex-wrap:wrap;margin-bottom:10px">${["How am I doing?","Where can I cut?","Am I saving enough?","What are my recurring charges?","Compare to last month"].map(s=>`<button class="chip" onclick="sendChip('${s}')">${s}</button>`).join("")}</div>`:"";
+
+  document.getElementById("view-coach").innerHTML=`
+    <div style="background:rgba(99,102,241,.1);border:0.5px solid rgba(99,102,241,.2);border-radius:12px;padding:.7rem 1rem;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:18px">🤖</span>
+      <div><div style="font-size:12px;font-weight:500;color:#818cf8">AI Budget Coach</div><div style="font-size:10px;color:rgba(255,255,255,.35)">Powered by your real spending data</div></div>
+    </div>
+    <div id="chat-window" style="height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:10px;padding-right:4px">${bubbles}<div id="chat-end"></div></div>
+    ${chips}
+    <div style="display:flex;gap:8px">
+      <input id="chat-input" class="inp" placeholder="Ask your coach anything..." style="flex:1;padding:9px 13px" onkeydown="if(event.key==='Enter')sendChat()">
+      <button onclick="sendChat()" style="width:42px;height:40px;border-radius:9px;border:none;background:#6366f1;color:white;font-size:16px;display:flex;align-items:center;justify-content:center">↑</button>
+    </div>`;
+  scrollChat();
+}
+
+function scrollChat(){const e=document.getElementById("chat-end");if(e)e.scrollIntoView();}
+
+function sendChip(txt){
+  const inp=document.getElementById("chat-input");
+  if(inp){inp.value=txt;sendChat();}
+}
+
+async function sendChat(){
+  const inp=document.getElementById("chat-input");
+  const q=(inp&&inp.value||"").trim();
+  if(!q)return;
+  chatMsgs.push({role:"user",text:q});
+  if(inp)inp.value="";
+  renderCoach();
+  // typing indicator
+  const cw=document.getElementById("chat-window");
+  if(cw){const d=document.createElement("div");d.className="chat-msg assistant";d.id="typing";d.innerHTML=`<div class="bubble assistant"><div style="display:flex;gap:4px;align-items:center">${[0,1,2].map(i=>`<div class="typing-dot" style="animation-delay:${i*.15}s"></div>`).join("")}</div></div>`;cw.appendChild(d);scrollChat();}
+  try{
+    const ctx=window._coachContext||{};
+    const sys=`You are a friendly, concise personal finance coach. You have access to the user's real financial data for April 2024.
+SPENDING: Total $${(ctx.tot||0).toFixed(2)}, by category: ${JSON.stringify(ctx.ct||{})}, budgets: ${JSON.stringify(ctx.budgets||{})}, over-budget: ${(ctx.over||[]).join(", ")||"none"}
+RECURRING: ${ctx.rec||"none"}
+SAVINGS: Total $${(ctx.ts||0).toLocaleString()}, accounts: ${savings.map(s=>`${s.label}: $${s.saved} of $${s.target}`).join(", ")}
+MONTH TOTALS: ${Object.entries(ctx.mTots||{}).map(([m,v])=>`${m}: $${v.toFixed(0)}`).join(", ")}
+Be conversational, warm, and concise (3-5 sentences). Use actual numbers from their data. Never be preachy.`;
+    const apiMsgs=chatMsgs.map(m=>({role:m.role==="assistant"?"assistant":"user",content:m.text}));
+    const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,system:sys,messages:apiMsgs})});
+    const data=await resp.json();
+    const reply=data.content.map(b=>b.text||"").join("");
+    chatMsgs.push({role:"assistant",text:reply});
+  }catch(e){chatMsgs.push({role:"assistant",text:"Sorry, I couldn't connect. Please try again."});}
+  renderCoach();
+}
+
+// ---- UPLOAD ----
+function renderUpload(){
+  document.getElementById("view-upload").innerHTML=`
+    <div id="drop-zone" ondragover="event.preventDefault()" ondrop="handleDrop(event)" onclick="document.getElementById('file-in').click()"
+      style="border:1.5px dashed rgba(99,102,241,.35);border-radius:15px;padding:2.5rem 1rem;text-align:center;cursor:pointer;background:rgba(99,102,241,.04)">
+      <input type="file" id="file-in" accept=".pdf,.png,.jpg,.jpeg,.csv" style="display:none" onchange="handleFile(this.files[0])">
+      <div id="drop-content"><div style="font-size:32px;margin-bottom:8px">📄</div><div style="font-weight:500;font-size:14px;margin-bottom:4px">Drop your bank statement</div><div style="font-size:11px;color:rgba(255,255,255,.3)">PDF, image, or CSV · AI extracts & categorizes</div></div>
+    </div>
+    <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      ${[["📊","CSV","Bank export"],["🖼","Image","Photo"],["📄","PDF","Bank PDF"]].map(([ic,t,s])=>`<div style="background:rgba(255,255,255,.04);border-radius:11px;padding:.75rem;text-align:center"><div style="font-size:16px;margin-bottom:3px">${ic}</div><div style="font-size:11px;font-weight:500">${t}</div><div style="font-size:9px;color:rgba(255,255,255,.28);margin-top:1px">${s}</div></div>`).join("")}
+    </div>`;
+}
+
+function handleDrop(e){e.preventDefault();const f=e.dataTransfer.files[0];if(f)handleFile(f);}
+async function handleFile(file){
+  const dc=document.getElementById("drop-content");
+  if(dc)dc.innerHTML=`<div style="font-size:28px;margin-bottom:8px">⏳</div><div style="color:rgba(255,255,255,.6);font-size:13px">Extracting with AI...</div>`;
+  try{
+    let content;
+    if(file.name.endsWith(".csv")){const text=await file.text();content=[{type:"text",text:`Extract transactions. Return ONLY JSON array: date(YYYY-MM-DD),merchant,amount(positive number),category(one of:${CATS.join(",")}),recurring(bool). No markdown.\n\n${text}`}];}
+    else{const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});content=[{type:file.name.endsWith(".pdf")?"document":"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:b64}},{type:"text",text:`Extract all transactions. Return ONLY JSON array: date(YYYY-MM-DD),merchant,amount(positive),category(one of:${CATS.join(",")}),recurring(bool). No markdown.`}];}
+    const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content}]})});
+    const data=await resp.json();
+    const parsed=JSON.parse(data.content.map(b=>b.text||"").join("").replace(/```json|```/g,"").trim());
+    parsed.forEach((t,i)=>txns.push({...t,id:Date.now()+i}));
+    switchView("transactions",document.querySelector("[data-view=transactions]"));
+  }catch(e){alert("Could not parse statement. Try a CSV.");if(dc)dc.innerHTML=`<div style="font-size:32px;margin-bottom:8px">📄</div><div style="font-weight:500;font-size:14px">Drop your bank statement</div>`;}
+}
+
+// ---- TXN MODALS ----
+function openAddTxn(){
+  showModal("Add transaction",txnForm({date:"",merchant:"",amount:"",category:"Food & Dining",recurring:false},null));
+}
+function openEditTxn(id){
+  const t=txns.find(x=>x.id===id);
+  showModal("Edit transaction",txnForm({...t,amount:String(t.amount)},id));
+}
+function txnForm(d,editId){
+  const catOpts=CATS.map(c=>`<option value="${c}" ${d.category===c?"selected":""}>${ICONS[c]} ${c}</option>`).join("");
+  return `
+    <div class="field"><label>Date</label><input type="date" class="inp" id="tf-date" value="${d.date}"></div>
+    <div class="field"><label>Merchant</label><input class="inp" id="tf-merchant" placeholder="e.g. Whole Foods" value="${d.merchant}"></div>
+    <div class="field"><label>Amount ($)</label><input type="number" step="0.01" class="inp" id="tf-amount" placeholder="0.00" value="${d.amount}"></div>
+    <div class="field"><label>Category</label><select class="inp" id="tf-cat">${catOpts}</select></div>
+    <div class="field"><label>Recurring charge</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="tog-track" class="toggle-track" style="background:${d.recurring?"#6366f1":"rgba(255,255,255,.1)"}" onclick="toggleRecurring()">
+          <div id="tog-thumb" class="toggle-thumb" style="left:${d.recurring?18:2}px"></div>
+        </div>
+        <span id="tog-lbl" style="font-size:12px;color:rgba(255,255,255,.5)">${d.recurring?"Yes — repeats monthly":"No"}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn-primary" style="flex:1" onclick="saveTxn(${editId||"null"})">Save</button>
+      <button class="btn-cancel" onclick="closeAllModals()">Cancel</button>
+    </div>`;
+}
+let _recurring=false;
+function showModal(title,body){
+  document.getElementById("modal-title").textContent=title;
+  document.getElementById("modal-body").innerHTML=body;
+  document.getElementById("modal-bg").classList.remove("hidden");
+  // sync toggle state
+  const t=document.getElementById("tog-track");
+  if(t)_recurring=t.style.background==="#6366f1";
+}
+function toggleRecurring(){
+  _recurring=!_recurring;
+  const tr=document.getElementById("tog-track"),th=document.getElementById("tog-thumb"),lb=document.getElementById("tog-lbl");
+  if(tr)tr.style.background=_recurring?"#6366f1":"rgba(255,255,255,.1)";
+  if(th)th.style.left=_recurring?"18px":"2px";
+  if(lb)lb.textContent=_recurring?"Yes — repeats monthly":"No";
+}
+function saveTxn(editId){
+  const date=document.getElementById("tf-date").value;
+  const merchant=document.getElementById("tf-merchant").value;
+  const amount=parseFloat(document.getElementById("tf-amount").value);
+  const category=document.getElementById("tf-cat").value;
+  if(!date||!merchant||!amount)return;
+  if(editId){txns=txns.map(t=>t.id===editId?{...t,date,merchant,amount,category,recurring:_recurring}:t);}
+  else{txns.push({id:Date.now(),date,merchant,amount,category,recurring:_recurring});}
+  closeAllModals();renderView(currentView);renderScoreRing();
+}
+function confirmDeleteTxn(id){
+  const t=txns.find(x=>x.id===id);
+  showModal("Delete transaction?",`<div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:14px">Remove <strong style="color:white">${t.merchant}</strong> ($${t.amount.toFixed(2)})?</div>
+    <div style="display:flex;gap:8px"><button class="btn-danger" style="flex:1" onclick="deleteTxn(${id})">Delete</button><button class="btn-cancel" onclick="closeAllModals()">Cancel</button></div>`);
+}
+function deleteTxn(id){txns=txns.filter(t=>t.id!==id);closeAllModals();renderView(currentView);renderScoreRing();}
+
+// ---- SAVINGS MODALS ----
+function openAddSav(){
+  window._editSavId=null;
+  showModal("New savings account",savForm({label:"",icon:"🎯",target:"",saved:"",color:"#6366f1"}));
+}
+function openEditSav(id){
+  window._editSavId=id;const s=savings.find(x=>x.id===id);
+  showModal("Edit account",savForm({...s,target:String(s.target),saved:String(s.saved)}));
+}
+function savForm(d){
+  const iconBtns=SAVE_ICONS.map(ic=>`<button type="button" onclick="selectSavIcon('${ic}',this)" style="width:34px;height:34px;border-radius:8px;border:1.5px solid ${d.icon===ic?"#6366f1":"rgba(255,255,255,.1)"};background:${d.icon===ic?"rgba(99,102,241,.2)":"transparent"};font-size:16px;cursor:pointer">${ic}</button>`).join("");
+  const colorBtns=SAVE_COLORS.map(c=>`<button type="button" onclick="selectSavColor('${c}',this)" style="width:26px;height:26px;border-radius:50%;background:${c};border:${d.color===c?"2.5px solid white":"2.5px solid transparent"};cursor:pointer"></button>`).join("");
+  window._savIcon=d.icon;window._savColor=d.color;
+  return `
+    <div class="field"><label>Label</label><input class="inp" id="sf-label" placeholder="e.g. Emergency fund" value="${d.label}"></div>
+    <div class="field"><label>Icon</label><div style="display:flex;flex-wrap:wrap;gap:6px" id="icon-grid">${iconBtns}</div></div>
+    <div class="field"><label>Color</label><div style="display:flex;gap:8px" id="color-grid">${colorBtns}</div></div>
+    <div class="field"><label>Goal ($)</label><input type="number" class="inp" id="sf-target" placeholder="5000" value="${d.target}"></div>
+    <div class="field"><label>Already saved ($)</label><input type="number" class="inp" id="sf-saved" placeholder="0" value="${d.saved}"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn-primary" style="flex:1" onclick="saveSav()">Save</button>
+      <button class="btn-cancel" onclick="closeAllModals()">Cancel</button>
+    </div>`;
+}
+function selectSavIcon(ic,btn){
+  window._savIcon=ic;
+  document.querySelectorAll("#icon-grid button").forEach(b=>{b.style.border="1.5px solid rgba(255,255,255,.1)";b.style.background="transparent";});
+  btn.style.border="1.5px solid #6366f1";btn.style.background="rgba(99,102,241,.2)";
+}
+function selectSavColor(c,btn){
+  window._savColor=c;
+  document.querySelectorAll("#color-grid button").forEach(b=>b.style.border="2.5px solid transparent");
+  btn.style.border="2.5px solid white";
+}
+function saveSav(){
+  const label=document.getElementById("sf-label").value;
+  const target=parseFloat(document.getElementById("sf-target").value);
+  const saved=parseFloat(document.getElementById("sf-saved").value||0);
+  if(!label||!target)return;
+  const obj={label,icon:window._savIcon||"🎯",target,saved,color:window._savColor||"#6366f1"};
+  if(window._editSavId){savings=savings.map(s=>s.id===window._editSavId?{...s,...obj}:s);}
+  else{savings.push({...obj,id:Date.now(),contributions:[]});}
+  closeAllModals();renderView(currentView);
+}
+function confirmDeleteSav(id){
+  const s=savings.find(x=>x.id===id);
+  showModal("Delete account?",`<div style="font-size:12px;color:rgba(255,255,255,.5);margin-bottom:14px">Remove <strong style="color:white">${s.label}</strong>? All history will be lost.</div>
+    <div style="display:flex;gap:8px"><button class="btn-danger" style="flex:1" onclick="deleteSav(${id})">Delete</button><button class="btn-cancel" onclick="closeAllModals()">Cancel</button></div>`);
+}
+function deleteSav(id){savings=savings.filter(s=>s.id!==id);closeAllModals();renderView(currentView);}
+
+function openAddContrib(savId){
+  window._contribSavId=savId;const s=savings.find(x=>x.id===savId);
+  showModal(`Add contribution · ${s.label}`,`
+    <div class="field"><label>Date</label><input type="date" class="inp" id="cf-date"></div>
+    <div class="field"><label>Amount ($)</label><input type="number" step="0.01" class="inp" id="cf-amount" placeholder="0.00"></div>
+    <div class="field"><label>Note</label><input class="inp" id="cf-note" placeholder="e.g. Monthly deposit"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button style="flex:1;padding:9px;border-radius:8px;border:none;background:#10b981;color:white;font-weight:500;cursor:pointer;font-size:13px" onclick="saveContrib()">Add contribution</button>
+      <button class="btn-cancel" onclick="closeAllModals()">Cancel</button>
+    </div>`);
+}
+function saveContrib(){
+  const date=document.getElementById("cf-date").value;
+  const amount=parseFloat(document.getElementById("cf-amount").value);
+  const note=document.getElementById("cf-note").value;
+  if(!date||!amount)return;
+  const contrib={id:Date.now(),date,amount,note};
+  savings=savings.map(s=>s.id===window._contribSavId?{...s,saved:parseFloat((s.saved+amount).toFixed(2)),contributions:[...(s.contributions||[]),contrib]}:s);
+  closeAllModals();renderView(currentView);
+}
+function openViewSav(id){
+  const s=savings.find(x=>x.id===id);
+  const pct=Math.min(100,(s.saved/s.target)*100);
+  const contribs=[...(s.contributions||[])].reverse().map(c=>`<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:rgba(255,255,255,.04);border-radius:9px;margin-bottom:5px">
+    <div style="flex:1"><div style="font-size:13px;font-weight:500">$${c.amount.toFixed(2)}</div><div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:1px">${c.date}${c.note?" · "+c.note:""}</div></div>
+    <button class="del-btn" onclick="deleteContrib(${id},${c.id})">✕</button>
+  </div>`).join("");
+  showModal(`${s.icon} ${s.label}`,`
+    <div style="background:${s.color}18;border-radius:12px;padding:1rem;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:12px;color:rgba(255,255,255,.4)">Saved</span><span style="font-size:12px;color:rgba(255,255,255,.4)">Goal</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="font-size:22px;font-weight:500">$${s.saved.toLocaleString()}</span><span style="font-size:22px;font-weight:500;color:rgba(255,255,255,.35)">$${s.target.toLocaleString()}</span></div>
+      <div class="progress-bg"><div class="progress-fill" style="width:${pct.toFixed(0)}%;background:${s.color}"></div></div>
+      <div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:5px">${pct.toFixed(1)}% · $${(s.target-s.saved).toLocaleString()} remaining</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:500;color:rgba(255,255,255,.5)">Contributions (${(s.contributions||[]).length})</div>
+      <button style="padding:5px 12px;border-radius:7px;border:0.5px solid ${s.color}55;background:${s.color}22;color:${s.color};cursor:pointer;font-size:11px" onclick="closeAllModals();openAddContrib(${id})">+ Add</button>
+    </div>
+    <div style="max-height:200px;overflow-y:auto">${contribs||`<div style="text-align:center;color:rgba(255,255,255,.2);font-size:12px;padding:1rem">No contributions yet</div>`}</div>`);
+}
+function deleteContrib(savId,cId){
+  savings=savings.map(s=>{if(s.id!==savId)return s;const c=s.contributions.find(x=>x.id===cId);return{...s,saved:parseFloat((s.saved-(c?.amount||0)).toFixed(2)),contributions:s.contributions.filter(x=>x.id!==cId)};});
+  closeAllModals();renderView(currentView);
+}
+
+// ---- BUDGETS ----
+function openEditBudgets(){
+  const fields=CATS.map(c=>`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:center;margin-bottom:10px"><div style="font-size:13px;color:rgba(255,255,255,.7)">${ICONS[c]} ${c}</div><input type="number" class="inp" id="b-${c.replace(/ /g,"_")}" value="${budgets[c]}"></div>`).join("");
+  showModal("Edit monthly budgets",`${fields}<div style="display:flex;gap:8px;margin-top:8px"><button class="btn-primary" style="flex:1" onclick="saveBudgets()">Save budgets</button><button class="btn-cancel" onclick="closeAllModals()">Cancel</button></div>`);
+}
+function saveBudgets(){
+  CATS.forEach(c=>{const v=parseFloat(document.getElementById("b-"+c.replace(/ /g,"_")).value);if(!isNaN(v))budgets[c]=v;});
+  closeAllModals();renderView(currentView);renderScoreRing();
+}
+
+// ---- EXPORT ----
+function exportPDF(){
+  const ct=catTotals(),tot=totalSpent(),ts=totalSaved();
+  const catRows=Object.entries(ct).map(([c,a])=>`<tr><td>${ICONS[c]} ${c}</td><td style="text-align:right">$${a.toFixed(2)}</td><td style="text-align:right">$${budgets[c]}</td><td style="color:${a>budgets[c]?"#dc2626":"#16a34a"};text-align:right">${a>budgets[c]?"Over":"OK"}</td></tr>`).join("");
+  const txnRows=txns.map(t=>`<tr><td>${t.date}</td><td>${t.merchant}</td><td>${t.category}</td><td style="text-align:right">$${t.amount.toFixed(2)}</td></tr>`).join("");
+  const savRows=savings.map(s=>`<tr><td>${s.icon} ${s.label}</td><td style="text-align:right">$${s.saved.toLocaleString()}</td><td style="text-align:right">$${s.target.toLocaleString()}</td><td style="text-align:right">${(s.saved/s.target*100).toFixed(0)}%</td></tr>`).join("");
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Budget Report</title><style>body{font-family:system-ui,sans-serif;color:#111;max-width:800px;margin:40px auto;padding:0 20px}h1{font-size:22px;font-weight:600}h2{font-size:15px;font-weight:600;margin:24px 0 8px;color:#4338ca}table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px}th{text-align:left;font-size:11px;color:#555;border-bottom:2px solid #e5e7eb;padding:5px 8px}td{padding:6px 8px;border-bottom:1px solid #f3f4f6}.s{display:inline-block;margin-right:28px;margin-bottom:16px}.sv{font-size:26px;font-weight:600;color:#4338ca}.sl{font-size:11px;color:#888}.foot{margin-top:32px;font-size:11px;color:#aaa;border-top:1px solid #e5e7eb;padding-top:10px}</style></head><body>
+  <h1>Budget Report · April 2024</h1><p style="color:#555;font-size:13px">Generated ${new Date().toLocaleDateString()}</p>
+  <div><div class="s"><div class="sv">$${tot.toFixed(2)}</div><div class="sl">Total spent</div></div><div class="s"><div class="sv">${txns.length}</div><div class="sl">Transactions</div></div><div class="s"><div class="sv">$${ts.toLocaleString()}</div><div class="sl">Total saved</div></div></div>
+  <h2>Category spending</h2><table><thead><tr><th>Category</th><th style="text-align:right">Spent</th><th style="text-align:right">Budget</th><th style="text-align:right">Status</th></tr></thead><tbody>${catRows}</tbody></table>
+  <h2>All transactions</h2><table><thead><tr><th>Date</th><th>Merchant</th><th>Category</th><th style="text-align:right">Amount</th></tr></thead><tbody>${txnRows}</tbody></table>
+  <h2>Savings accounts</h2><table><thead><tr><th>Account</th><th style="text-align:right">Saved</th><th style="text-align:right">Goal</th><th style="text-align:right">Progress</th></tr></thead><tbody>${savRows}</tbody></table>
+  <div class="foot">Budget Tracker · April 2024</div></body></html>`;
+  const w=window.open("","_blank");w.document.write(html);w.document.close();w.print();
+}
+
+// ---- MODAL UTILS ----
+function closeModal(e){if(e.target===document.getElementById("modal-bg"))closeAllModals();}
+function closeAllModals(){document.getElementById("modal-bg").classList.add("hidden");}
+
+// ---- INIT ----
+renderScoreRing();
+renderDashboard();
+</script>
+</body>
+</html>
