@@ -33,7 +33,8 @@ LoomTracker is currently built as a single-file, portable web application.
     Open `index.html` in any modern browser. No `npm install` or build steps required.
 3.  **AI Functionality:**
     To use the AI Coach and Document Uploader, you will need to provide an API key. *Note: In a production environment, ensure these calls are routed through a secure backend to protect your credentials.*
-
+4. Webpreview: https://billbotprocessing-star.github.io/loom-tracker/
+   
 ## 🏗 Roadmap: From Chaos to Order
 
 This project is evolving from a client-side prototype into a fully automated financial engine:
