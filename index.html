@@ -569,26 +569,203 @@ async function sendChat(){
 }
 
 // ─── UPLOAD ───
+const N8N_WEBHOOK = 'https://billbotprocessing.app.n8n.cloud/webhook/bank';
+
 function renderUpload(){
-  document.getElementById('view-upload').innerHTML=`<div class="drop-zone" ondragover="event.preventDefault()" ondrop="handleDrop(event)" onclick="document.getElementById('fi').click()"><input type="file" id="fi" accept=".pdf,.png,.jpg,.jpeg,.csv" style="display:none" onchange="handleFile(this.files[0])"><div id="dz-inner"><div style="font-size:48px;margin-bottom:12px">📄</div><div style="font-size:15px;font-weight:600;margin-bottom:6px">Drop your bank statement</div><div style="font-size:12px;color:rgba(255,255,255,.35)">PDF, image, or CSV · AI extracts everything</div></div></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px">${[['📊','CSV','Bank export'],['🖼','Image','Photo'],['📄','PDF','Bank PDF']].map(([ic,t,s])=>`<div style="background:rgba(255,255,255,.04);border-radius:14px;padding:14px;text-align:center"><div style="font-size:22px;margin-bottom:4px">${ic}</div><div style="font-size:12px;font-weight:500">${t}</div><div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:2px">${s}</div></div>`).join('')}</div>`;
+  document.getElementById('view-upload').innerHTML=`
+    <!-- Mode toggle -->
+    <div style="display:flex;background:rgba(255,255,255,0.05);border-radius:12px;padding:3px;margin-bottom:14px;gap:3px">
+      <button id="mode-ai" onclick="setUploadMode('ai')" style="flex:1;padding:9px;border-radius:9px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;background:rgba(99,102,241,0.3);color:#818cf8;border:0.5px solid rgba(99,102,241,0.4)">🤖 AI Extract</button>
+      <button id="mode-n8n" onclick="setUploadMode('n8n')" style="flex:1;padding:9px;border-radius:9px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;background:transparent;color:rgba(255,255,255,0.35)">⚡ n8n Webhook</button>
+    </div>
+
+    <!-- Drop zone -->
+    <div class="drop-zone" ondragover="event.preventDefault();this.style.borderColor='#6366f1'" ondragleave="this.style.borderColor=''" ondrop="handleDrop(event)" onclick="document.getElementById('fi').click()">
+      <input type="file" id="fi" accept=".pdf,.png,.jpg,.jpeg,.csv" style="display:none" onchange="handleFile(this.files[0])">
+      <div id="dz-inner">
+        <div style="font-size:48px;margin-bottom:12px">📄</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px">Drop your bank statement</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.35)" id="dz-sub">PDF, image, or CSV · AI extracts everything</div>
+      </div>
+    </div>
+
+    <!-- n8n info panel (hidden by default) -->
+    <div id="n8n-panel" style="display:none;margin-top:12px;background:rgba(16,185,129,0.07);border:0.5px solid rgba(16,185,129,0.2);border-radius:14px;padding:14px">
+      <div style="font-size:10px;color:#6ee7b7;font-weight:600;letter-spacing:.3px;text-transform:uppercase;margin-bottom:8px">n8n Webhook Active</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.45);word-break:break-all;margin-bottom:8px">${N8N_WEBHOOK}</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.35)">File is sent as <code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px">multipart/form-data</code> · n8n processes & returns structured JSON</div>
+    </div>
+
+    <!-- Response viewer -->
+    <div id="response-panel" style="display:none;margin-top:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div style="font-size:10px;color:rgba(255,255,255,.38);text-transform:uppercase;letter-spacing:.3px">Webhook Response</div>
+        <div style="display:flex;gap:6px">
+          <button onclick="copyResponse()" style="font-size:10px;padding:4px 10px;border-radius:6px;border:0.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:rgba(255,255,255,.5);cursor:pointer">Copy</button>
+          <button onclick="importResponse()" style="font-size:10px;padding:4px 10px;border-radius:6px;border:0.5px solid rgba(16,185,129,.3);background:rgba(16,185,129,.1);color:#6ee7b7;cursor:pointer">Import all →</button>
+        </div>
+      </div>
+      <div id="response-box" style="background:rgba(0,0,0,.3);border:0.5px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;font-size:11px;font-family:monospace;color:rgba(255,255,255,.65);max-height:240px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></div>
+      <div id="response-summary" style="margin-top:10px"></div>
+    </div>
+
+    <!-- Format cards -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px">
+      ${[['📊','CSV','Bank export'],['🖼','Image','Photo'],['📄','PDF','Bank PDF']].map(([ic,t,s])=>`<div style="background:rgba(255,255,255,.04);border-radius:14px;padding:14px;text-align:center"><div style="font-size:22px;margin-bottom:4px">${ic}</div><div style="font-size:12px;font-weight:500">${t}</div><div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:2px">${s}</div></div>`).join('')}
+    </div>
+    <div style="height:70px"></div>`;
+
+  window._uploadMode = 'ai';
+  window._lastResponse = null;
 }
-function handleDrop(e){e.preventDefault();const f=e.dataTransfer.files[0];if(f)handleFile(f);}
+
+function setUploadMode(mode){
+  window._uploadMode = mode;
+  const aiBtn = document.getElementById('mode-ai');
+  const n8nBtn = document.getElementById('mode-n8n');
+  const n8nPanel = document.getElementById('n8n-panel');
+  const dzSub = document.getElementById('dz-sub');
+  if(!aiBtn||!n8nBtn)return;
+  if(mode==='ai'){
+    aiBtn.style.cssText='flex:1;padding:9px;border-radius:9px;border:0.5px solid rgba(99,102,241,0.4);font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;background:rgba(99,102,241,0.3);color:#818cf8';
+    n8nBtn.style.cssText='flex:1;padding:9px;border-radius:9px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;background:transparent;color:rgba(255,255,255,0.35)';
+    if(n8nPanel)n8nPanel.style.display='none';
+    if(dzSub)dzSub.textContent='PDF, image, or CSV · AI extracts everything';
+  } else {
+    n8nBtn.style.cssText='flex:1;padding:9px;border-radius:9px;border:0.5px solid rgba(16,185,129,0.4);font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;background:rgba(16,185,129,0.2);color:#6ee7b7';
+    aiBtn.style.cssText='flex:1;padding:9px;border-radius:9px;border:none;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s;background:transparent;color:rgba(255,255,255,0.35)';
+    if(n8nPanel)n8nPanel.style.display='block';
+    if(dzSub)dzSub.textContent='PDF, image, or CSV · Sent to n8n for processing';
+  }
+}
+
+function handleDrop(e){e.preventDefault();e.currentTarget.style.borderColor='';const f=e.dataTransfer.files[0];if(f)handleFile(f);}
+
 async function handleFile(file){
-  const dz=document.getElementById('dz-inner');if(dz)dz.innerHTML=`<div style="font-size:36px;margin-bottom:10px">⏳</div><div style="font-size:14px;color:rgba(255,255,255,.6)">Extracting with AI...</div>`;
+  const dz=document.getElementById('dz-inner');
+  if(dz)dz.innerHTML=`<div style="font-size:36px;margin-bottom:10px">⏳</div><div style="font-size:14px;color:rgba(255,255,255,.6)">${window._uploadMode==='n8n'?'Sending to n8n webhook…':'Extracting with AI...'}</div>`;
+  const rp=document.getElementById('response-panel');if(rp)rp.style.display='none';
+
+  if(window._uploadMode==='n8n'){
+    await handleN8nUpload(file);
+  } else {
+    await handleAiUpload(file);
+  }
+
+  // Reset drop zone
+  const dz2=document.getElementById('dz-inner');
+  if(dz2)dz2.innerHTML=`<div style="font-size:48px;margin-bottom:12px">📄</div><div style="font-size:15px;font-weight:600;margin-bottom:6px">Drop your bank statement</div><div style="font-size:12px;color:rgba(255,255,255,.35)" id="dz-sub">${window._uploadMode==='n8n'?'PDF, image, or CSV · Sent to n8n for processing':'PDF, image, or CSV · AI extracts everything'}</div>`;
+}
+
+async function handleN8nUpload(file){
+  try{
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+    formData.append('user_id', currentUser?.id || '');
+    formData.append('user_email', currentUser?.email || '');
+    formData.append('filename', file.name);
+    formData.append('filetype', file.type || 'application/octet-stream');
+    formData.append('uploaded_at', new Date().toISOString());
+
+    const resp = await fetch(N8N_WEBHOOK, {
+      method: 'POST',
+      body: formData
+    });
+
+    const raw = await resp.text();
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch { parsed = { raw }; }
+
+    window._lastResponse = parsed;
+    showWebhookResponse(parsed, resp.status, resp.ok);
+  } catch(err){
+    showWebhookError(err.message);
+  }
+}
+
+function showWebhookResponse(parsed, status, ok){
+  const rp = document.getElementById('response-panel');
+  const rb = document.getElementById('response-box');
+  const rs = document.getElementById('response-summary');
+  if(!rp||!rb||!rs)return;
+  rp.style.display='block';
+
+  // Pretty print JSON
+  rb.textContent = JSON.stringify(parsed, null, 2);
+
+  // Detect transactions array in response
+  const txnArray = Array.isArray(parsed) ? parsed
+    : parsed?.transactions || parsed?.data?.transactions || parsed?.data || null;
+  const count = Array.isArray(txnArray) ? txnArray.length : null;
+
+  const statusColor = ok ? '#6ee7b7' : '#f87171';
+  const statusLabel = ok ? '✓ Success' : '✕ Error';
+
+  rs.innerHTML=`
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:500;background:${ok?'rgba(16,185,129,.12)':'rgba(239,68,68,.12)'};border:0.5px solid ${ok?'rgba(16,185,129,.3)':'rgba(239,68,68,.3)'};color:${statusColor}">${statusLabel} · HTTP ${status}</div>
+      ${count!==null?`<div style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:500;background:rgba(99,102,241,.12);border:0.5px solid rgba(99,102,241,.3);color:#818cf8">${count} transactions detected</div>`:''}
+    </div>
+    ${count>0?`<div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px">Review below, then tap <strong style="color:#6ee7b7">Import all →</strong> to save to your ledger.</div>`:'<div style="font-size:11px;color:rgba(255,255,255,.4)">No transaction array detected in response. Verify your n8n workflow output format.</div>'}`;
+
+  // Expected format hint
+  if(!count){
+    rb.textContent += `\n\n/* Expected n8n response format:\n[\n  {\n    "date": "2024-04-01",\n    "merchant": "Whole Foods",\n    "amount": 87.43,\n    "category": "Food & Dining",\n    "recurring": false\n  }\n]\n*/`;
+  }
+  toast(`Webhook responded · HTTP ${status}`);
+}
+
+function showWebhookError(msg){
+  const rp=document.getElementById('response-panel');const rb=document.getElementById('response-box');const rs=document.getElementById('response-summary');
+  if(!rp||!rb||!rs)return;
+  rp.style.display='block';
+  rb.textContent=`Error: ${msg}\n\nCheck that the n8n webhook URL is active and CORS is allowed for this origin.`;
+  rs.innerHTML=`<div style="padding:5px 10px;border-radius:8px;font-size:11px;font-weight:500;background:rgba(239,68,68,.12);border:0.5px solid rgba(239,68,68,.3);color:#f87171">✕ Request failed · ${msg}</div>`;
+  toast('Webhook error — see response panel');
+}
+
+function copyResponse(){
+  const rb=document.getElementById('response-box');
+  if(rb)navigator.clipboard.writeText(rb.textContent).then(()=>toast('Copied to clipboard'));
+}
+
+async function importResponse(){
+  const parsed=window._lastResponse;
+  if(!parsed){toast('No response to import');return;}
+  const txnArray=Array.isArray(parsed)?parsed:parsed?.transactions||parsed?.data?.transactions||parsed?.data||[];
+  if(!txnArray.length){toast('No transactions found in response');return;}
+  let count=0;
+  for(const t of txnArray){
+    if(!t.date||!t.merchant||!t.amount)continue;
+    const rec=await dbAddTxn({
+      date:t.date,
+      merchant:t.merchant,
+      amount:parseFloat(t.amount),
+      category:t.category||'Other',
+      recurring:t.recurring||false,
+      notes:t.notes||''
+    });
+    if(rec){txns.unshift(rec);count++;}
+  }
+  toast(`✓ ${count} transactions imported to ledger`);
+  switchView('transactions',document.querySelector('[data-view=transactions]'));
+}
+
+async function handleAiUpload(file){
   try{
     let content;
     if(file.name.endsWith('.csv')){const t=await file.text();content=[{type:'text',text:`Extract transactions. Return ONLY JSON array: date(YYYY-MM-DD),merchant,amount(positive),category(one of:${CATS.join(',')}),recurring(bool). No markdown.\n\n${t}`}];}
     else{const b64=await new Promise((r,rej)=>{const fr=new FileReader();fr.onload=()=>r(fr.result.split(',')[1]);fr.onerror=rej;fr.readAsDataURL(file);});content=[{type:file.name.endsWith('.pdf')?'document':'image',source:{type:'base64',media_type:file.type||'image/jpeg',data:b64}},{type:'text',text:`Extract all transactions. Return ONLY JSON array: date(YYYY-MM-DD),merchant,amount(positive),category(one of:${CATS.join(',')}),recurring(bool). No markdown.`}];}
     const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content}]})});
     const data=await resp.json();
-    const parsed=JSON.parse(data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
-    for(const t of parsed){
+    const txnArray=JSON.parse(data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim());
+    for(const t of txnArray){
       const rec=await dbAddTxn({date:t.date,merchant:t.merchant,amount:t.amount,category:t.category,recurring:t.recurring||false});
       if(rec)txns.unshift({...rec});
     }
     switchView('transactions',document.querySelector('[data-view=transactions]'));
-    toast(`✓ ${parsed.length} transactions imported`);
-  }catch{alert('Could not parse statement. Try a CSV file.');renderUpload();}
+    toast(`✓ ${txnArray.length} transactions imported`);
+  }catch{alert('Could not parse statement. Try a CSV file.');}
 }
 
 // ─── MODALS ───
