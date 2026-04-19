@@ -659,27 +659,51 @@ async function handleFile(file){
 
 async function handleN8nUpload(file){
   try{
-    const formData = new FormData();
-    formData.append('file', file, file.name);
-    formData.append('user_id', currentUser?.id || '');
-    formData.append('user_email', currentUser?.email || '');
-    formData.append('filename', file.name);
-    formData.append('filetype', file.type || 'application/octet-stream');
-    formData.append('uploaded_at', new Date().toISOString());
-
-    const resp = await fetch(N8N_WEBHOOK, {
-      method: 'POST',
-      body: formData
+    // Read file as base64
+    const b64 = await new Promise((res,rej)=>{
+      const fr = new FileReader();
+      fr.onload = ()=>res(fr.result.split(',')[1]);
+      fr.onerror = rej;
+      fr.readAsDataURL(file);
     });
 
+    const payload = {
+      user_id:       currentUser?.id   || '',
+      user_email:    currentUser?.email || '',
+      filename:      file.name,
+      filetype:      file.type || 'application/octet-stream',
+      uploaded_at:   new Date().toISOString(),
+      file_base64:   b64,
+      file_size:     file.size,
+      categories:    CATS
+    };
+
+    const resp = await fetch(N8N_WEBHOOK, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    });
+
+    // n8n sometimes returns 200 with empty body on first activation
     const raw = await resp.text();
     let parsed;
-    try { parsed = JSON.parse(raw); } catch { parsed = { raw }; }
+    try {
+      parsed = raw.trim() ? JSON.parse(raw) : { _note: 'Webhook returned empty body — ensure your n8n workflow has a "Respond to Webhook" node wired up.' };
+    } catch {
+      parsed = { _raw: raw, _note: 'Response was not valid JSON.' };
+    }
 
     window._lastResponse = parsed;
     showWebhookResponse(parsed, resp.status, resp.ok);
+
   } catch(err){
-    showWebhookError(err.message);
+    // Surface a clear CORS vs network diagnosis
+    const isCors = err.message.toLowerCase().includes('fetch') || err.message.toLowerCase().includes('network');
+    showWebhookError(
+      isCors
+        ? `Network/CORS error — make sure your n8n workflow has "Allow CORS" enabled on the Webhook node and is set to respond with JSON. (${err.message})`
+        : err.message
+    );
   }
 }
 
