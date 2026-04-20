@@ -585,6 +585,16 @@ function renderUpload(){
         <div style="font-size:12px;color:rgba(255,255,255,.35)">PDF, image, or CSV · processed automatically</div>
       </div>
     </div>
+
+    <!-- Debug panel -->
+    <div style="margin-top:14px;background:rgba(0,0,0,.25);border:0.5px solid rgba(255,255,255,.08);border-radius:14px;padding:14px">
+      <div style="font-size:10px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.3px;margin-bottom:10px">Webhook Debug</div>
+      <button onclick="testWebhook()" style="width:100%;padding:11px;border-radius:10px;border:0.5px solid rgba(99,102,241,.4);background:rgba(99,102,241,.12);color:#818cf8;font-size:13px;font-weight:500;cursor:pointer;margin-bottom:10px">⚡ Test webhook connection</button>
+      <div id="debug-status" style="font-size:11px;color:rgba(255,255,255,.4);min-height:16px"></div>
+      <div id="debug-box" style="display:none;margin-top:10px;background:rgba(0,0,0,.3);border-radius:8px;padding:10px;font-size:10px;font-family:monospace;color:rgba(255,255,255,.6);max-height:180px;overflow-y:auto;white-space:pre-wrap;word-break:break-all"></div>
+      <button id="debug-import-btn" onclick="importDebugData()" style="display:none;width:100%;margin-top:8px;padding:10px;border-radius:10px;border:0.5px solid rgba(16,185,129,.4);background:rgba(16,185,129,.12);color:#6ee7b7;font-size:13px;font-weight:500;cursor:pointer">Import transactions →</button>
+    </div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px">
       ${[['📊','CSV','Bank export'],['🖼','Image','Photo of statement'],['📄','PDF','Bank PDF']].map(([ic,t,s])=>`
         <div style="background:rgba(255,255,255,.04);border-radius:14px;padding:14px;text-align:center">
@@ -594,6 +604,67 @@ function renderUpload(){
         </div>`).join('')}
     </div>
     <div style="height:70px"></div>`;
+}
+
+async function testWebhook(){
+  const status = document.getElementById('debug-status');
+  const box    = document.getElementById('debug-box');
+  const impBtn = document.getElementById('debug-import-btn');
+  status.style.color='rgba(255,255,255,.4)';
+  status.textContent='Pinging webhook…';
+  box.style.display='none';
+  impBtn.style.display='none';
+  window._debugData=null;
+  try{
+    // Send a tiny plain-text blob so n8n receives a real multipart POST
+    const fd=new FormData();
+    fd.append('file', new Blob(['test'], {type:'text/plain'}), 'test.txt');
+    fd.append('filename','test.txt');
+    fd.append('mimetype','text/plain');
+    fd.append('categories',JSON.stringify(CATS));
+
+    const resp=await fetch(N8N_WEBHOOK,{method:'POST',body:fd});
+    const raw=await resp.text();
+    console.log('Test webhook raw:', raw);
+
+    status.textContent=`HTTP ${resp.status} · ${raw.length} bytes received`;
+    status.style.color=resp.ok?'#6ee7b7':'#f87171';
+
+    box.style.display='block';
+    try{
+      const parsed=JSON.parse(raw);
+      box.textContent=JSON.stringify(parsed,null,2);
+      const rows=Array.isArray(parsed)?parsed:(parsed.transactions||parsed.data||[]);
+      if(rows.length){window._debugData=rows;impBtn.style.display='block';}
+    }catch{
+      box.textContent=raw||'(empty body)';
+    }
+  }catch(err){
+    status.textContent='❌ '+err.message;
+    status.style.color='#f87171';
+    box.style.display='block';
+    box.textContent='Network/CORS error:\n'+err.message+'\n\nMake sure the n8n webhook is active and not paused.';
+  }
+}
+
+async function importDebugData(){
+  const rows=window._debugData||[];
+  if(!rows.length){toast('No data to import');return;}
+  let inserted=0;
+  for(const t of rows){
+    if(!t.date||!t.merchant||!t.amount)continue;
+    try{
+      const rec=await dbAddTxn({
+        date:t.date,merchant:t.merchant,
+        amount:Math.abs(Number(t.amount)),
+        category:CATS.includes(t.category)?t.category:'Other',
+        recurring:!!t.recurring
+      });
+      if(rec){txns.unshift(rec);inserted++;}
+    }catch(e){console.error('insert fail',t,e);}
+  }
+  toast(`✓ ${inserted} transactions imported`);
+  switchView('transactions',document.querySelector('[data-view=transactions]'));
 }
 
 function handleDrop(e){
