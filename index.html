@@ -272,7 +272,15 @@ select.inp option{background:#1a1040;color:white}
 // ─── CONFIG ───
 const SUPABASE_URL = 'SUPABASE_URL';
 const SUPABASE_KEY = 'SUPABASE_KEY';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SUPABASE_CONFIGURED = (() => {
+  const url = String(SUPABASE_URL || '').trim();
+  const key = String(SUPABASE_KEY || '').trim();
+  if (!url || !key) return false;
+  if (url === 'SUPABASE_URL' || key === 'SUPABASE_KEY') return false;
+  if (!/^https:\/\//i.test(url)) return false;
+  return true;
+})();
+const sb = SUPABASE_CONFIGURED ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 // ─── CONSTANTS ───
 const CATS=["Food & Dining","Transport","Entertainment","Shopping","Utilities","Health","Subscriptions","Other"];
@@ -312,6 +320,7 @@ async function handleAuth(){
   const sucEl=document.getElementById('auth-success');
   const btn=document.getElementById('auth-btn');
   errEl.textContent='';sucEl.style.display='none';
+  if(!sb){errEl.textContent='Supabase is not configured yet. Update SUPABASE_URL and SUPABASE_KEY.';return;}
   if(!email||!pass){errEl.textContent='Please fill in all fields.';return;}
   if(_authMode==='signup'){
     const confirm=document.getElementById('auth-confirm').value;
@@ -338,6 +347,7 @@ async function handleAuth(){
 }
 
 async function signInWithGoogle(){
+  if(!sb){document.getElementById('auth-err').textContent='Supabase is not configured yet.';return;}
   const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.href}});
   if(error)document.getElementById('auth-err').textContent=error.message;
 }
@@ -432,21 +442,40 @@ function showAuthPage(){
 }
 
 // ─── AUTH LISTENER ───
-sb.auth.onAuthStateChange(async(event,session)=>{
-  if(session?.user){
-    await initApp(session.user);
-  } else {
-    currentUser=null;txns=[];savings=[];
-    showAuthPage();
+function bootWithoutSupabase(){
+  // Demo / preview mode when Supabase is not configured (e.g. GitHub Pages placeholders)
+  currentUser=null;txns=[];savings=[];
+  showAuthPage();
+  const err=document.getElementById('auth-err');
+  if(err){
+    err.textContent='Preview mode: add real Supabase URL + anon key in index.html to enable sign-in.';
   }
-});
+}
 
-// Check existing session on load
-(async()=>{
-  const{data:{session}}=await sb.auth.getSession();
-  if(!session){showAuthPage();}
-  // if session exists, onAuthStateChange fires automatically
-})();
+if(!sb){
+  bootWithoutSupabase();
+} else {
+  sb.auth.onAuthStateChange(async(event,session)=>{
+    if(session?.user){
+      await initApp(session.user);
+    } else {
+      currentUser=null;txns=[];savings=[];
+      showAuthPage();
+    }
+  });
+
+  // Check existing session on load (never leave the loading overlay stuck)
+  (async()=>{
+    try{
+      const{data:{session}}=await sb.auth.getSession();
+      if(!session){showAuthPage();}
+      // if session exists, onAuthStateChange fires automatically
+    }catch(e){
+      console.error('Supabase session check failed', e);
+      showAuthPage();
+    }
+  })();
+}
 
 // ─── COMPUTED ───
 function ct(){const t={};txns.forEach(x=>{t[x.category]=(t[x.category]||0)+Number(x.amount);});return t;}
